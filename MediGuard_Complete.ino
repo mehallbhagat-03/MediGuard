@@ -112,14 +112,14 @@ const int IR_DETECTED = LOW;
 
 // Medicine 1 = 6:00 PM
 
-const int MED1_HOUR    = 2;
-const int MED1_MINUTE = 7;
+const int MED1_HOUR   =22;
+const int MED1_MINUTE = 53;
 
 
 // Medicine 2 = 6:30 PM
 
-const int MED2_HOUR   = 2;
-const int MED2_MINUTE = 8;
+const int MED2_HOUR   = 22;
+const int MED2_MINUTE = 54;
 
 
 // ======================================================
@@ -130,6 +130,7 @@ const unsigned long FIRST_ALERT_TIME  = 10000;  // 10 sec
 const unsigned long WAIT_TIME         = 10000;  // 10 sec
 const unsigned long SECOND_ALERT_TIME = 5000;   // 5 sec
 const unsigned long CLOSE_DELAY       = 5000;   // 5 sec
+const unsigned long IR_START_DELAY   = 2000;   // Wait 2 sec after lid opens before IR sensing
 
 
 // ======================================================
@@ -597,34 +598,51 @@ void sendAwayModeOffNotification()
 
 
 // ======================================================
-// BLYNK - MEDICINE STATUS DATASTREAMS
+// BLYNK - MEDICINE SKIPPED BECAUSE AWAY
 // ======================================================
 
-// V0 = Medicine 1 Status
-// V1 = Medicine 2 Status
-// These are updated only when the medicine status changes.
-
-void updateMedicineStatus(int medicineNumber, const char* status)
+void sendMedicineAwayNotification(int medicineNumber)
 {
   if (!Blynk.connected())
   {
-    Serial.println("Blynk not connected - status update skipped.");
+    Serial.println(
+      "Blynk not connected - medicine away notification skipped."
+    );
+
     return;
   }
 
-  if (medicineNumber == 1)
+
+  char message[100];
+
+  sprintf(
+    message,
+    "Medicine %d reminder skipped because patient is away.",
+    medicineNumber
+  );
+
+
+  Serial.println(
+    "Sending medicine AWAY notification..."
+  );
+
+
+  Blynk.logEvent(
+    "medicine_away",
+    message
+  );
+
+
+  for (int i = 0; i < 5; i++)
   {
-    Blynk.virtualWrite(V0, status);
-  }
-  else if (medicineNumber == 2)
-  {
-    Blynk.virtualWrite(V1, status);
+    Blynk.run();
+    delay(20);
   }
 
-  Serial.print("Medicine ");
-  Serial.print(medicineNumber);
-  Serial.print(" status -> ");
-  Serial.println(status);
+
+  Serial.println(
+    "Medicine away notification sent."
+  );
 }
 
 
@@ -735,7 +753,7 @@ void startMedicine1()
       millis();
 
 
-    updateMedicineStatus(1, "SKIPPED - AWAY");
+    sendMedicineAwayNotification(1);
 
 
     showAwayScreen();
@@ -819,7 +837,7 @@ void startMedicine2()
       millis();
 
 
-    updateMedicineStatus(2, "SKIPPED - AWAY");
+    sendMedicineAwayNotification(2);
 
 
     showAwayScreen();
@@ -886,9 +904,6 @@ void medicine1Taken()
   showMedicineTakenScreen();
 
 
-  updateMedicineStatus(1, "TAKEN");
-
-
   sendMedicineTakenNotification(1);
 
 
@@ -927,9 +942,6 @@ void medicine2Taken()
   showMedicineTakenScreen();
 
 
-  updateMedicineStatus(2, "TAKEN");
-
-
   sendMedicineTakenNotification(2);
 
 
@@ -966,9 +978,6 @@ void medicine1Missed()
 
 
   showMedicineMissedScreen();
-
-
-  updateMedicineStatus(1, "NOT TAKEN");
 
 
   sendMedicineMissedNotification(1);
@@ -1010,9 +1019,6 @@ void medicine2Missed()
 
 
   showMedicineMissedScreen();
-
-
-  updateMedicineStatus(2, "NOT TAKEN");
 
 
   sendMedicineMissedNotification(2);
@@ -1114,7 +1120,10 @@ void handleMedicine1()
     medicine1State == MED_FIRST_ALERT
   )
   {
+    // Ignore the IR sensor for 2 seconds while the lid finishes opening.
+    // This prevents the moving lid/flap from being detected as a hand.
     if (
+      elapsed >= IR_START_DELAY &&
       digitalRead(IR1_PIN) == IR_DETECTED
     )
     {
@@ -1165,6 +1174,7 @@ void handleMedicine1()
   )
   {
     if (
+      elapsed >= IR_START_DELAY &&
       digitalRead(IR1_PIN) == IR_DETECTED
     )
     {
@@ -1330,7 +1340,10 @@ void handleMedicine2()
     medicine2State == MED_FIRST_ALERT
   )
   {
+    // Ignore the IR sensor for 2 seconds while the lid finishes opening.
+    // This prevents the moving lid/flap from being detected as a hand.
     if (
+      elapsed >= IR_START_DELAY &&
       digitalRead(IR2_PIN) == IR_DETECTED
     )
     {
@@ -1381,6 +1394,7 @@ void handleMedicine2()
   )
   {
     if (
+      elapsed >= IR_START_DELAY &&
       digitalRead(IR2_PIN) == IR_DETECTED
     )
     {
@@ -2190,14 +2204,6 @@ void setup()
 
 
   // ====================================================
-  // INITIAL MEDICINE STATUS
-  // ====================================================
-
-  updateMedicineStatus(1, "READY");
-  updateMedicineStatus(2, "READY");
-
-
-  // ====================================================
   // INITIAL OLED
   // ====================================================
 
@@ -2227,12 +2233,12 @@ void setup()
 
 
   Serial.println(
-    "Medicine 1 : configured time"
+    "Medicine 1 : 18:00"
   );
 
 
   Serial.println(
-    "Medicine 2 : configured time"
+    "Medicine 2 : 18:30"
   );
 
 
