@@ -110,13 +110,13 @@ const int IR_DETECTED = LOW;
 // MEDICINE TIMES
 // ======================================================
 
-// Medicine 1 = 6:00 PM
+// Medicine 1 = 22:53
 
 const int MED1_HOUR   =22;
 const int MED1_MINUTE = 53;
 
 
-// Medicine 2 = 6:30 PM
+// Medicine 2 = 22:54
 
 const int MED2_HOUR   = 22;
 const int MED2_MINUTE = 54;
@@ -130,7 +130,7 @@ const unsigned long FIRST_ALERT_TIME  = 10000;  // 10 sec
 const unsigned long WAIT_TIME         = 10000;  // 10 sec
 const unsigned long SECOND_ALERT_TIME = 5000;   // 5 sec
 const unsigned long CLOSE_DELAY       = 5000;   // 5 sec
-const unsigned long IR_START_DELAY   = 2000;   // Wait 2 sec after lid opens before IR sensing
+const unsigned long IR_START_DELAY    = 2000;   // Wait 2 sec after lid opens before IR sensing
 
 
 // ======================================================
@@ -598,51 +598,34 @@ void sendAwayModeOffNotification()
 
 
 // ======================================================
-// BLYNK - MEDICINE SKIPPED BECAUSE AWAY
+// BLYNK - MEDICINE STATUS DATASTREAMS
 // ======================================================
 
-void sendMedicineAwayNotification(int medicineNumber)
+// V0 = Medicine 1 Status
+// V1 = Medicine 2 Status
+// These show the latest status only.
+
+void updateMedicineStatus(int medicineNumber, const char* status)
 {
   if (!Blynk.connected())
   {
-    Serial.println(
-      "Blynk not connected - medicine away notification skipped."
-    );
-
+    Serial.println("Blynk not connected - status update skipped.");
     return;
   }
 
-
-  char message[100];
-
-  sprintf(
-    message,
-    "Medicine %d reminder skipped because patient is away.",
-    medicineNumber
-  );
-
-
-  Serial.println(
-    "Sending medicine AWAY notification..."
-  );
-
-
-  Blynk.logEvent(
-    "medicine_away",
-    message
-  );
-
-
-  for (int i = 0; i < 5; i++)
+  if (medicineNumber == 1)
   {
-    Blynk.run();
-    delay(20);
+    Blynk.virtualWrite(V0, status);
+  }
+  else if (medicineNumber == 2)
+  {
+    Blynk.virtualWrite(V1, status);
   }
 
-
-  Serial.println(
-    "Medicine away notification sent."
-  );
+  Serial.print("Medicine ");
+  Serial.print(medicineNumber);
+  Serial.print(" status -> ");
+  Serial.println(status);
 }
 
 
@@ -753,7 +736,7 @@ void startMedicine1()
       millis();
 
 
-    sendMedicineAwayNotification(1);
+    updateMedicineStatus(1, "SKIPPED - AWAY");
 
 
     showAwayScreen();
@@ -837,7 +820,7 @@ void startMedicine2()
       millis();
 
 
-    sendMedicineAwayNotification(2);
+    updateMedicineStatus(2, "SKIPPED - AWAY");
 
 
     showAwayScreen();
@@ -904,6 +887,9 @@ void medicine1Taken()
   showMedicineTakenScreen();
 
 
+  updateMedicineStatus(1, "TAKEN");
+
+
   sendMedicineTakenNotification(1);
 
 
@@ -942,6 +928,9 @@ void medicine2Taken()
   showMedicineTakenScreen();
 
 
+  updateMedicineStatus(2, "TAKEN");
+
+
   sendMedicineTakenNotification(2);
 
 
@@ -978,6 +967,9 @@ void medicine1Missed()
 
 
   showMedicineMissedScreen();
+
+
+  updateMedicineStatus(1, "NOT TAKEN");
 
 
   sendMedicineMissedNotification(1);
@@ -1019,6 +1011,9 @@ void medicine2Missed()
 
 
   showMedicineMissedScreen();
+
+
+  updateMedicineStatus(2, "NOT TAKEN");
 
 
   sendMedicineMissedNotification(2);
@@ -1174,7 +1169,6 @@ void handleMedicine1()
   )
   {
     if (
-      elapsed >= IR_START_DELAY &&
       digitalRead(IR1_PIN) == IR_DETECTED
     )
     {
@@ -1394,7 +1388,6 @@ void handleMedicine2()
   )
   {
     if (
-      elapsed >= IR_START_DELAY &&
       digitalRead(IR2_PIN) == IR_DETECTED
     )
     {
@@ -2204,6 +2197,14 @@ void setup()
 
 
   // ====================================================
+  // INITIAL MEDICINE STATUS
+  // ====================================================
+
+  updateMedicineStatus(1, "READY");
+  updateMedicineStatus(2, "READY");
+
+
+  // ====================================================
   // INITIAL OLED
   // ====================================================
 
@@ -2233,12 +2234,12 @@ void setup()
 
 
   Serial.println(
-    "Medicine 1 : 18:00"
+    "Medicine 1 : 22:53"
   );
 
 
   Serial.println(
-    "Medicine 2 : 18:30"
+    "Medicine 2 : 22:54"
   );
 
 
